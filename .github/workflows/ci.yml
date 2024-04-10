@@ -45,6 +45,14 @@ jobs:
       - name: Check out code into the Go module directory
         uses: actions/checkout@v3
 
+      # go to this docs https://github.com/golang-migrate/migrate/tree/master/cmd/migrate and find new version that use linux-amd64 for ubuntu
+      # download zip => move file that extract => which for check that success
+      - name: Install golang-migrate
+        run: |
+          curl -L https://github.com/golang-migrate/migrate/releases/download/v4.17.0/migrate.linux-amd64.tar.gz | tar xvz
+          sudo mv migrate linux-amd64 /usr/bin/
+          which migrate
+
       # for setup db
       - name: Run migrations
         run: make migrateup
