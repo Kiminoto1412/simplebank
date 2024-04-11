@@ -5,19 +5,19 @@ import (
 	"log"
 
 	// _ "github.com/lib/pq" => have to use for connect db
-	_ "github.com/lib/pq"
 	"github.com/Kiminoto1412/simplebank/api"
 	db "github.com/Kiminoto1412/simplebank/db/sqlc"
-)
-
-const (
-	dbDriver      = "postgres"
-	dbSource      = "postgresql://root:secret@localhost:5432/simple_bank?sslmode=disable"
-	serverAddress = "0.0.0.0:8080"
+	"github.com/Kiminoto1412/simplebank/util"
+	_ "github.com/lib/pq"
 )
 
 func main() {
-	conn, err := sql.Open(dbDriver, dbSource)
+	config, err := util.LoadConfig(".") // "." => app.env is the same location of this file
+	if err != nil {
+		log.Fatal("cannot load config:", err)
+	}
+
+	conn, err := sql.Open(config.DBDriver, config.DBSource)
 	if err != nil {
 		log.Fatal("cannot connec the database")
 	}
@@ -25,9 +25,9 @@ func main() {
 	store := db.NewStore(conn)
 	server := api.NewServer(store)
 
-	err = server.Start(serverAddress)
+	err = server.Start(config.ServerAddress)
 
-	if err != nil{
-		log.Fatal("cannot start server:",err)
+	if err != nil {
+		log.Fatal("cannot start server:", err)
 	}
 }
