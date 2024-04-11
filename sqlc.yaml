@@ -8,6 +8,7 @@ sql:
         package: "db"
         out: "db/sqlc"
         emit_json_tags: true
-        emit_interface: true
+        # emit_interface => will generate querier.go that will gen all qurey interface for us to use
+        emit_interface: true 
         # emit_empty_slices => if data got null that will change res from null to []
         emit_empty_slices: true

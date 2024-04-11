@@ -20,6 +20,10 @@ test:
 	go test -v -cover ./...
 
 server:
-	go run main.go
+	go run main.go 
 
-.PHONY: postgres createdb dropdb migrateup migratedown sqlc test server
+# mockgen -package (change your package name of this generate file) -destination (location of destination to generate mock file) (location of interface) (interface name)
+mock:
+	mockgen -package mockdb -destination db/mock/store.go github.com/Kiminoto1412/simplebank/db/sqlc Store
+
+.PHONY: postgres createdb dropdb migrateup migratedown sqlc test server mock
