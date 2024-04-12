@@ -41,13 +41,6 @@ func RandomMoney() int64 {
 	return RandomInt(0, 1000)
 }
 
-// Constants for all supported currencies
-const (
-	USD = "USD"
-	EUR = "EUR"
-	CAD = "CAD"
-)
-
 // RandomCurrency generates a random currency code
 func RandomCurrency() string {
 	currencies := []string{USD, EUR, CAD}

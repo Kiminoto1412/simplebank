@@ -2,9 +2,11 @@ package api
 
 import (
 	"bytes"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -19,37 +21,85 @@ import (
 func TestGetAccountAPI(t *testing.T) {
 	account := randomAccount()
 
-	// testCases := []struct {
-	// 	name          string
-	// 	accountID     int64
-	// 	buildStubs    func(store *mockdb.MockStore)
-	// 	checkResponse func(t *testing.T, recorder *httptest.ResponseRecorder)
-	// }
+	testCases := []struct {
+		name          string
+		accountID     int64
+		buildStubs    func(store *mockdb.MockStore)
+		checkResponse func(t *testing.T, recorder *httptest.ResponseRecorder)
+	}{
+		{
+			name:      "OK",
+			accountID: account.ID,
+			buildStubs: func(store *mockdb.MockStore) {
+				store.EXPECT().GetAccount(gomock.Any(), gomock.Eq(account.ID)).Times(1).Return(account, nil)
+			},
+			checkResponse: func(t *testing.T, recorder *httptest.ResponseRecorder) {
+				require.Equal(t, http.StatusOK, recorder.Code)
+				requireBodyMatchAccount(t, recorder.Body, account)
+			},
+		},
+		//  TODO: add more cases
+		{
+			name:      "Not Found",
+			accountID: account.ID,
+			buildStubs: func(store *mockdb.MockStore) {
+				store.EXPECT().GetAccount(gomock.Any(), gomock.Eq(account.ID)).Times(1).Return(db.Account{}, sql.ErrNoRows)
+			},
+			checkResponse: func(t *testing.T, recorder *httptest.ResponseRecorder) {
+				require.Equal(t, http.StatusNotFound, recorder.Code)
+			},
+		},
+		{
+			name:      "InternalError",
+			accountID: account.ID,
+			buildStubs: func(store *mockdb.MockStore) {
+				store.EXPECT().GetAccount(gomock.Any(), gomock.Eq(account.ID)).Times(1).Return(db.Account{}, sql.ErrConnDone)
+			},
+			checkResponse: func(t *testing.T, recorder *httptest.ResponseRecorder) {
+				require.Equal(t, http.StatusInternalServerError, recorder.Code)
+			},
+		},
+		{
+			name:      "InvalidID",
+			accountID: 0,
+			buildStubs: func(store *mockdb.MockStore) {
+				store.EXPECT().GetAccount(gomock.Any(), gomock.Any()).Times(0)
+			},
+			checkResponse: func(t *testing.T, recorder *httptest.ResponseRecorder) {
+				require.Equal(t, http.StatusBadRequest, recorder.Code)
+			},
+		},
+	}
 
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
+	for i := range testCases {
+		tc := testCases[i]
 
-	store := mockdb.NewMockStore(ctrl)
+		t.Run(tc.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
 
-	// build stubs
-	store.EXPECT().GetAccount(gomock.Any(), gomock.Eq(account.ID)).Times(1).Return(account, nil)
+			store := mockdb.NewMockStore(ctrl)
 
-	// start test server and send request
-	server := NewServer(store)
-	// dont have to start a real http server so just use httptest.NewRecorder() to create a new ResponseRecorder
-	recorder := httptest.NewRecorder()
-	url := fmt.Sprintf("/accounts/%d", account.ID)
-	// nil => for get don't have to have req.body
-	request, err := http.NewRequest(http.MethodGet, url, nil)
+			// build stub
+			tc.buildStubs(store)
 
-	// validate
-	require.NoError(t, err)
+			// start test server and send request
+			server := NewServer(store)
+			// dont have to start a real http server so just use httptest.NewRecorder() to create a new ResponseRecorder
+			recorder := httptest.NewRecorder()
+			url := fmt.Sprintf("/accounts/%d", tc.accountID)
+			// nil => for get don't have to have req.body
+			request, err := http.NewRequest(http.MethodGet, url, nil)
 
-	server.router.ServeHTTP(recorder, request)
+			// validate
+			require.NoError(t, err)
 
-	// check response
-	require.Equal(t, http.StatusOK, recorder.Code)
-	requireBodyMatchAccount(t, recorder.Body, account)
+			server.router.ServeHTTP(recorder, request)
+
+			tc.checkResponse(t, recorder)
+		})
+
+	}
 }
 
 func randomAccount() db.Account {
@@ -62,6 +112,8 @@ func requireBodyMatchAccount(t *testing.T, body *bytes.Buffer, account db.Accoun
 	// to ReadAll data from response body
 	data, err := io.ReadAll(body)
 	require.NoError(t, err)
+
+	log.Println("Body data:", string(data))
 
 	var gotAccount db.Account
 	err = json.Unmarshal(data, &gotAccount)
